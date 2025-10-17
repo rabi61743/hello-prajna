@@ -777,6 +777,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_user_account: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       generate_order_number: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -808,11 +812,24 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       track_product_view: {
         Args: {
           p_product_id: string
           p_session_id?: string
           p_user_id?: string
+        }
+        Returns: undefined
+      }
+      update_user_profile: {
+        Args: {
+          p_avatar_url?: string
+          p_first_name?: string
+          p_last_name?: string
+          p_phone?: string
         }
         Returns: undefined
       }

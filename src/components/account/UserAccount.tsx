@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { User, Package, MapPin, CreditCard, Eye, Download } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Package, MapPin, CreditCard, Eye, Download, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,67 +9,79 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
+import { useOrders } from "@/hooks/useOrders";
 import { useApp } from "@/contexts/AppContext";
-
-interface Order {
-  id: string;
-  date: string;
-  status: "delivered" | "shipped" | "processing" | "cancelled";
-  total: number;
-  items: Array<{
-    id: string;
-    name: string;
-    image: string;
-    quantity: number;
-    price: number;
-  }>;
-}
+import { LoadingState } from "@/components/ui/loading";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function UserAccount() {
-  const { user } = useApp();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { setIsAuthModalOpen } = useApp();
+  const { profile, loading: profileLoading, updateProfile, updatePassword, deleteAccount } = useProfile();
+  const { orders, loading: ordersLoading } = useOrders();
+  
   const [activeTab, setActiveTab] = useState("profile");
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+  });
+  const [passwordData, setPasswordData] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [saving, setSaving] = useState(false);
 
-  const orders: Order[] = [
-    {
-      id: "ORD-1234567890",
-      date: "2024-01-15",
-      status: "delivered",
-      total: 289.98,
-      items: [
-        {
-          id: "1",
-          name: "Wireless Bluetooth Headphones",
-          image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80",
-          quantity: 1,
-          price: 89.99
-        },
-        {
-          id: "2",
-          name: "Smart Fitness Watch",
-          image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80",
-          quantity: 1,
-          price: 199.99
-        }
-      ]
-    },
-    {
-      id: "ORD-0987654321",
-      date: "2024-01-10",
-      status: "shipped",
-      total: 149.99,
-      items: [
-        {
-          id: "3",
-          name: "Portable Bluetooth Speaker",
-          image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=800&q=80",
-          quantity: 1,
-          price: 149.99
-        }
-      ]
+  // Update form data when profile loads
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        firstName: profile.first_name || "",
+        lastName: profile.last_name || "",
+        phone: profile.phone || "",
+      });
     }
-  ];
+  }, [profile]);
 
-  const getStatusColor = (status: Order["status"]) => {
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    await updateProfile({
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      phone: formData.phone,
+    });
+    setSaving(false);
+  };
+
+  const handleUpdatePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      return;
+    }
+    setSaving(true);
+    await updatePassword(passwordData.newPassword);
+    setSaving(false);
+    setPasswordData({ newPassword: "", confirmPassword: "" });
+  };
+
+  const handleDeleteAccount = async () => {
+    await deleteAccount();
+    navigate('/');
+  };
+
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "delivered": return "bg-green-100 text-green-800";
       case "shipped": return "bg-blue-100 text-blue-800";
@@ -80,7 +93,7 @@ export default function UserAccount() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle>Please Sign In</CardTitle>
@@ -89,25 +102,34 @@ export default function UserAccount() {
             <p className="text-muted-foreground mb-4">
               You need to be signed in to view your account.
             </p>
-            <Button className="w-full">Sign In</Button>
+            <Button className="w-full" onClick={() => setIsAuthModalOpen(true)}>Sign In</Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  if (profileLoading) {
+    return <LoadingState message="Loading your account..." fullScreen />;
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
-              <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
+              <AvatarImage src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
+              <AvatarFallback>
+                {profile?.first_name?.[0] || user.email?.[0]}
+                {profile?.last_name?.[0] || ""}
+              </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-3xl font-bold">Welcome back, {user.firstName}!</h1>
+              <h1 className="text-3xl font-bold">
+                Welcome back, {profile?.first_name || 'User'}!
+              </h1>
               <p className="text-muted-foreground">Manage your account and view your orders</p>
             </div>
           </div>
@@ -143,43 +165,103 @@ export default function UserAccount() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" defaultValue={user.firstName} />
+                      <Input 
+                        id="firstName" 
+                        value={formData.firstName}
+                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      />
                     </div>
                     <div>
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" defaultValue={user.lastName} />
+                      <Input 
+                        id="lastName" 
+                        value={formData.lastName}
+                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      />
                     </div>
                     <div>
                       <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" defaultValue={user.email} />
+                      <Input id="email" type="email" value={profile?.email || ""} disabled />
                     </div>
                     <div>
                       <Label htmlFor="phone">Phone</Label>
-                      <Input id="phone" placeholder="+1 (555) 123-4567" />
+                      <Input 
+                        id="phone" 
+                        placeholder="+1 (555) 123-4567"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      />
                     </div>
                   </div>
-                  <Button>Save Changes</Button>
+                  <Button onClick={handleSaveProfile} disabled={saving}>
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </Button>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Account Settings</CardTitle>
+                  <CardTitle>Change Password</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input id="currentPassword" type="password" />
-                  </div>
-                  <div>
                     <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" />
+                    <Input 
+                      id="newPassword" 
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input id="confirmPassword" type="password" />
+                    <Input 
+                      id="confirmPassword" 
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    />
                   </div>
-                  <Button>Update Password</Button>
+                  <Button 
+                    onClick={handleUpdatePassword} 
+                    disabled={saving || !passwordData.newPassword || passwordData.newPassword !== passwordData.confirmPassword}
+                  >
+                    {saving ? 'Updating...' : 'Update Password'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Delete Account</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Once you delete your account, there is no going back. Please be certain.
+                  </p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Account
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your account
+                          and remove your data from our servers.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteAccount}>
+                          Delete Account
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -191,62 +273,71 @@ export default function UserAccount() {
                   <CardTitle>Order History</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    {orders.map((order) => (
-                      <div key={order.id} className="border rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="font-semibold">Order {order.id}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Placed on {new Date(order.date).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <Badge className={getStatusColor(order.status)}>
-                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                            </Badge>
-                            <p className="font-semibold mt-1">${order.total.toFixed(2)}</p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          {order.items.map((item) => (
-                            <div key={item.id} className="flex items-center gap-4">
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-12 h-12 object-cover rounded"
-                              />
-                              <div className="flex-1">
-                                <p className="font-medium">{item.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Qty: {item.quantity} × ${item.price.toFixed(2)}
-                                </p>
-                              </div>
+                  {ordersLoading ? (
+                    <LoadingState message="Loading orders..." />
+                  ) : orders.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No orders yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {orders.map((order) => (
+                        <div key={order.id} className="border rounded-lg p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h3 className="font-semibold">Order {order.order_number}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                Placed on {new Date(order.created_at).toLocaleDateString()}
+                              </p>
                             </div>
-                          ))}
-                        </div>
+                            <div className="text-right">
+                              <Badge className={getStatusColor(order.status)}>
+                                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                              </Badge>
+                              <p className="font-semibold mt-1">${Number(order.total).toFixed(2)}</p>
+                            </div>
+                          </div>
 
-                        <Separator className="my-4" />
-
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Download className="h-4 w-4 mr-2" />
-                            Download Invoice
-                          </Button>
-                          {order.status === "delivered" && (
-                            <Button variant="outline" size="sm">
-                              Reorder
-                            </Button>
+                          {order.items && order.items.length > 0 && (
+                            <div className="space-y-3">
+                              {order.items.map((item) => (
+                                <div key={item.id} className="flex items-center gap-4">
+                                  {item.product_image && (
+                                    <img
+                                      src={item.product_image}
+                                      alt={item.product_name}
+                                      className="w-12 h-12 object-cover rounded"
+                                    />
+                                  )}
+                                  <div className="flex-1">
+                                    <p className="font-medium">{item.product_name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Qty: {item.quantity} × ${Number(item.price).toFixed(2)}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
+
+                          <Separator className="my-4" />
+
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </Button>
+                            {order.tracking_number && (
+                              <Button variant="outline" size="sm">
+                                Track Package
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

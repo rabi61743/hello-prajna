@@ -63,7 +63,8 @@ export default function AuthModal() {
       signupData.email, 
       signupData.password, 
       signupData.firstName, 
-      signupData.lastName
+      signupData.lastName,
+      signupData.phone
     );
     setLoading(false);
     
@@ -223,11 +224,10 @@ export default function AuthModal() {
                     <Input
                       id="phone"
                       type="tel"
-                      placeholder="Enter your phone number"
+                      placeholder="Enter your phone number (optional)"
                       value={signupData.phone}
                       onChange={(e) => setSignupData(prev => ({ ...prev, phone: e.target.value }))}
                       className="pl-10"
-                      required
                     />
                   </div>
                 </div>

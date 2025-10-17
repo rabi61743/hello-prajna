@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Star, Truck, Shield, Headphones, RotateCcw } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
+import { Product } from "./product/ProductCard";
 
 function Home() {
+  const { addToCart, addToWishlist } = useApp();
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: "",
     categories: [],
@@ -168,7 +171,12 @@ function Home() {
 
             {/* Products Grid */}
             <div className="flex-1">
-              <ProductGrid products={[]} />
+              <ProductGrid 
+                filters={filters}
+                onProductClick={(product: Product) => console.log('Navigate to:', product.id)}
+                onAddToCart={addToCart}
+                onAddToWishlist={addToWishlist}
+              />
             </div>
           </div>
         </div>

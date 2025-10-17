@@ -8,6 +8,8 @@ import ProductCard from './ProductCard';
 import ProductQuickView from './ProductQuickView';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { cn } from '@/lib/utils';
+import { useProducts, Product as DBProduct } from '@/hooks/useProducts';
+import { FilterState } from '@/components/search/SearchFilters';
 
 interface Product {
   id: string;
@@ -24,10 +26,7 @@ interface Product {
 }
 
 interface ProductGridProps {
-  products: Product[];
-  loading?: boolean;
-  hasMore?: boolean;
-  onLoadMore?: () => void;
+  filters?: FilterState;
   onProductClick?: (product: Product) => void;
   onAddToCart?: (product: Product) => void;
   onAddToWishlist?: (product: Product) => void;
@@ -46,59 +45,18 @@ const sortOptions = [
 ];
 
 export default function ProductGrid({
-  products = [
-    {
-      id: '1',
-      name: 'Premium Wireless Headphones',
-      price: 299.99,
-      originalPrice: 399.99,
-      rating: 4.5,
-      reviewCount: 128,
-      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80',
-      category: 'Electronics',
-      brand: 'AudioTech',
-      inStock: true,
-      onSale: true
-    },
-    {
-      id: '2',
-      name: 'Smart Fitness Watch',
-      price: 199.99,
-      rating: 4.2,
-      reviewCount: 89,
-      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80',
-      category: 'Electronics',
-      brand: 'FitTech',
-      inStock: true
-    },
-    {
-      id: '3',
-      name: 'Ergonomic Office Chair',
-      price: 449.99,
-      originalPrice: 599.99,
-      rating: 4.7,
-      reviewCount: 234,
-      image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
-      category: 'Furniture',
-      brand: 'ComfortPlus',
-      inStock: true,
-      onSale: true
-    },
-    {
-      id: '4',
-      name: 'Professional Camera Lens',
-      price: 899.99,
-      rating: 4.8,
-      reviewCount: 156,
-      image: 'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=400&q=80',
-      category: 'Photography',
-      brand: 'LensMaster',
-      inStock: false
-    }
-  ],
-  loading = false,
-  hasMore = true,
-  onLoadMore = () => {},
+  filters = {
+    searchQuery: '',
+    categories: [],
+    brands: [],
+    priceRange: [0, 1000],
+    rating: 0,
+    sortBy: 'relevance',
+    inStock: false,
+    onSale: false,
+    freeShipping: false,
+    features: []
+  },
   onProductClick = () => {},
   onAddToCart = () => {},
   onAddToWishlist = () => {},
@@ -107,10 +65,28 @@ export default function ProductGrid({
   onFiltersToggle = () => {}
 }: ProductGridProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState('relevance');
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  
+  // Fetch products from Supabase
+  const { products: dbProducts, loading, hasMore, loadMore } = useProducts(filters);
 
-  const { observerRef } = useInfiniteScroll(onLoadMore, {
+  // Convert DB products to Product format for ProductCard
+  const products: Product[] = dbProducts.map(p => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    originalPrice: p.original_price || undefined,
+    rating: p.rating_average,
+    reviewCount: p.review_count,
+    image: p.product_images?.[0]?.image_url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80',
+    category: p.categories?.name || 'Uncategorized',
+    brand: p.brands?.name,
+    inStock: p.stock_quantity > 0,
+    onSale: !!p.original_price,
+    isNew: p.is_new
+  }));
+
+  const { observerRef } = useInfiniteScroll(loadMore, {
     enabled: hasMore && !loading
   });
 
@@ -156,21 +132,11 @@ export default function ProductGrid({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Sort Dropdown */}
+          {/* Sort Dropdown - Sorting is now handled by filters */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sort by:</span>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sortOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span className="text-sm text-muted-foreground">
+              Sorted by: {sortOptions.find(o => o.value === filters.sortBy)?.label || 'Relevance'}
+            </span>
           </div>
 
           {/* View Mode Toggle */}

@@ -30,15 +30,8 @@ interface SearchFiltersProps {
   isMobile?: boolean;
 }
 
-const categories = [
-  "Electronics", "Fashion", "Home & Garden", "Sports & Outdoors", 
-  "Beauty & Personal Care", "Books", "Toys & Games", "Automotive"
-];
-
-const brands = [
-  "Apple", "Samsung", "Nike", "Adidas", "Sony", "Canon", 
-  "Dell", "HP", "Amazon", "Google", "Microsoft", "LG"
-];
+import { useCategories } from '@/hooks/useCategories';
+import { useBrands } from '@/hooks/useBrands';
 
 const features = [
   "Wireless", "Waterproof", "Bluetooth", "USB-C", "Fast Charging",
@@ -63,6 +56,13 @@ export default function SearchFilters({
   isMobile = false
 }: SearchFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Fetch categories and brands from Supabase
+  const { categories: dbCategories } = useCategories(null);
+  const { brands: dbBrands } = useBrands();
+  
+  const categories = dbCategories.map(c => c.name);
+  const brands = dbBrands.map(b => b.name);
 
   const updateFilter = (key: keyof FilterState, value: any) => {
     onFiltersChange({ ...filters, [key]: value });
